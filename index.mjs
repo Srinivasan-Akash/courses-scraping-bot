@@ -4,7 +4,11 @@ import fetch from 'node-fetch';
 import connectToMongo from './connectToMongo.js';
 
 function extractTexts($, selector, type) {
-    return $(selector).map((index, element) => $(element).text()).get();
+    if (type === "href") {
+        return $(selector).map((index, element) => $(element).attr('href')).get();
+    } else {
+        return $(selector).map((index, element) => $(element).text()).get();
+    }
 }
 
 function extractTagTexts($, selectors) {
@@ -43,14 +47,14 @@ async function webscrape() {
             const internalTags = extractTagTexts($, ['.cds-AccordionRoot-container.cds-AccordionRoot-silent .css-yk0mzy .css-18p0rob.cds-121'])
             const internalWhatYouWillLearn = extractTexts($, '.cds-AccordionRoot-container.cds-AccordionRoot-silent .css-1otrsh1 + ul li')
 
-            const courseCatalogs = $('.cds-AccordionRoot-container.cds-AccordionRoot-silent')
+            const courseCatalogs = $('.cds-AccordionRoot-container.cds-AccordionRoot-silent .cds-119.cds-Typography-base.css-h1jogs.cds-121')
             .map((index, element) => {
-                const $element = $(element);
+                const prefix = ".cds-AccordionRoot-container.cds-AccordionRoot-silent";
                 return {
-                    title: $element.find('.cds-119.cds-Typography-base.css-h1jogs.cds-121').text(),
-                    link: "https://www.coursera.org" + $element.find('.cds-119.cds-Typography-base.css-h1jogs.cds-121 a').attr('href'),
-                    duration: $element.find('.css-mc13jp span span').eq(0).text(),
-                    rating: $element.find('.css-mc13jp .css-1tdi49m').text().trim(),
+                    title: extractTexts($, `${prefix} .cds-119.cds-Typography-base.css-h1jogs.cds-121`)[index],
+                    link: "https://www.coursera.org" + extractTexts($, `${prefix} .cds-119.cds-Typography-base.css-h1jogs.cds-121 a`, "href")[index],
+                    duration: extractTexts($, `${prefix} .css-mc13jp span span`)[index],
+                    rating: extractTexts($, `${prefix} .css-mc13jp .css-1tdi49m`)[index],
                     internalTags: JSON.stringify(internalTags),
                     whatYouWillLearn: JSON.stringify(internalWhatYouWillLearn),
                 };
@@ -74,8 +78,9 @@ async function webscrape() {
                 Catalog: courseCatalogs,
             };
 
-            const result = await collection.insertOne(courseInfo);
-            console.log(`Inserted document with _id: ${result.insertedId}`);
+            console.log(courseInfo)
+            // const result = await collection.insertOne(courseInfo);
+            // console.log(`Inserted document with _id: ${result.insertedId}`);
         } catch (error) {
             console.error(`Error while processing URL: ${url}`, error);
         }
