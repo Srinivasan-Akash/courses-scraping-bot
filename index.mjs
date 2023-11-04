@@ -3,137 +3,86 @@ import cheerio from 'cheerio';
 import fetch from 'node-fetch';
 import connectToMongo from './connectToMongo.js';
 
+function extractTexts($, selector, type) {
+    return $(selector).map((index, element) => $(element).text()).get();
+}
+
+function extractTagTexts($, selectors) {
+    const texts = [];
+    selectors.forEach(selector => {
+        $(selector).each((index, element) => {
+            const text = $(element).text();
+            if (text) {
+                texts.push(text);
+            }
+        });
+    });
+    return texts;
+}
+
 async function webscrape() {
+    console.log("Starting webscraping...");
     const links = await getLinks();
     const client = await connectToMongo();
+    const db = client.db('courses');
+    const collection = db.collection('coursera');
 
-    for (const link of links) {
+    for (const { links: url } of links) {
         try {
-            const response = await fetch(link.links);
+            const response = await fetch(url);
             if (response.status !== 200) {
-                console.error(`Request failed with status ${response.status}`);
-                continue;
+                throw new Error(`Request failed with status ${response.status}`);
             }
+
             const html = await response.text();
             const $ = cheerio.load(html);
 
-            let courseName, courseDesc, courseInstructors, enrolledStudents, rating, reviews, experience, whatYouWillLearnA, whatYouWillLearnB, whatYouWillLearnC, whatYouWillLearnD, tags, tagTexts, outcomePoints, avgSalary, jobOpenings, gaurenteePercentage, catalog, catalogTexts, courseDuration
+            const visibleTagsSelector = '#about .css-yk0mzy .css-0';
+            const hiddenTagsSelector = '#about .css-yk0mzy .css-k26awr';
+            const tagTexts = extractTagTexts($, [visibleTagsSelector, hiddenTagsSelector]);
+            const internalTags = extractTagTexts($, ['.cds-AccordionRoot-container.cds-AccordionRoot-silent .css-yk0mzy .css-18p0rob.cds-121'])
+            const internalWhatYouWillLearn = extractTexts($, '.cds-AccordionRoot-container.cds-AccordionRoot-silent .css-1otrsh1 + ul li')
 
-            courseName = $('h1').eq(0).text();
-            courseDesc = $('.cds-119.css-80vnnb.cds-121').eq(0).text()
-            courseInstructors = $('.cds-119.css-80vnnb .cds-121').text()
-            enrolledStudents = $('.cds-119.css-80vnnb.cds-121 span strong').text()
-            rating = $('.css-guxf6x .cds-119.css-h1jogs.cds-121').eq(0).text()
-            reviews = $('.css-lt1dx1 .css-guxf6x .cds-119.css-dmxkm1.cds-121').eq(0).text()
-            experience = $('.cds-119.css-h1jogs.cds-121').eq(2).text()
-            whatYouWillLearnA = $('.cds-9.css-7avemv.cds-10 li').eq(0).text()
-            whatYouWillLearnB = $('.cds-9.css-7avemv.cds-10 li').eq(1).text()
-            whatYouWillLearnC = $('.cds-9.css-7avemv.cds-10 li').eq(2).text()
-            whatYouWillLearnD = $('.cds-9.css-7avemv.cds-10 li').eq(3).text()
-            courseDuration = $('.cds-119.css-h1jogs.cds-121').eq(3).text()
-
-            tags = $('#about .css-yk0mzy .css-0 ');
-            let hiddenTags = $('#about .css-yk0mzy .css-k26awr');
-            tagTexts = [];
-            
-            tags.each(function(index, element) {
-                // This will get the text of each <span> with the class '.cds-119.css-18p0rob.cds-121'
-                let text = $(element).text(); // Now using `$(element)` to get the jQuery object
-                if (text) {
-                    tagTexts.push(text);
-                }
-            });
-
-            hiddenTags.each(function(index, element) {
-                // This will get the text of each <span> with the class '.cds-119.css-18p0rob.cds-121'
-                let text = $(element).text(); // Now using `$(element)` to get the jQuery object
-                if (text) {
-                    tagTexts.push(text);
-                }
-            });
-            
-            console.log(tagTexts);
-
-            // const checkTextAvailability = async ($elements) => {
-            //     const text = $elements.text();
-            //     if (!text) {
-            //         // If no text is found, wait for a short time and check again
-            //         await new Promise(resolve => setTimeout(resolve, 1000)); // Adjust the wait time as needed
-            //         return checkTextAvailability($elements);
-            //     }
-            //     return text;
-            // };
-            
-            // const x = await checkTextAvailability(tags)
-            // console.log(x, "IMP")
-
-
-            avgSalary = $('.cds-119.css-dmxkm1.cds-121 .cds-119.css-bbd009.cds-121').eq(0).text()
-            jobOpenings = $('.cds-119.css-dmxkm1.cds-121 .cds-119.css-bbd009.cds-121').eq(1).text()
-            gaurenteePercentage = $('.cds-119.css-dmxkm1.cds-121 .cds-119.css-bbd009.cds-121').eq(2).text()
-            outcomePoints = $('.css-1g9t2fb').text()
-            
-            catalog = $('.cds-AccordionRoot-container.cds-AccordionRoot-silent .cds-119.css-h1jogs.cds-121')
-            const catalogCourseDuration = $(".cds-AccordionRoot-container.cds-AccordionRoot-silent .cds-119.css-mc13jp.cds-121 span:nth-child(3) span")
-            
-            catalogTexts = catalog.map((index, element) => {
+            const courseCatalogs = $('.cds-AccordionRoot-container.cds-AccordionRoot-silent')
+            .map((index, element) => {
+                const $element = $(element);
                 return {
-                    "index": "Course " + index,
-                    "courseName": $(element).text(),
-                    // "catalogCourseDuration": catalogCourseDuration,
-                    // "catalogCourseDesc": catalogCourseDesc,
-                    // "catalogCourseInfo": catalogCourseInfoText
-                }
+                    title: $element.find('.cds-119.cds-Typography-base.css-h1jogs.cds-121').text(),
+                    link: "https://www.coursera.org" + $element.find('.cds-119.cds-Typography-base.css-h1jogs.cds-121 a').attr('href'),
+                    duration: $element.find('.css-mc13jp span span').eq(0).text(),
+                    rating: $element.find('.css-mc13jp .css-1tdi49m').text().trim(),
+                    internalTags: JSON.stringify(internalTags),
+                    whatYouWillLearn: JSON.stringify(internalWhatYouWillLearn),
+                };
             }).get();
 
-            const db = client.db('courses');
-            const collection = db.collection('coursera');
-            await collection.insertOne({
-                "Title": courseName,
-                "Desc": courseDesc,
-                "Instructors": courseInstructors,
-                "Total Enrolled Students": enrolledStudents,
-                "Rating": rating,
-                "Duration": courseDuration,
-                "Experience": experience,
-                "Reviews": reviews,
-                "What You Will Learn": (whatYouWillLearnA + ' ' + whatYouWillLearnB + ' ' + whatYouWillLearnC + ' ' + whatYouWillLearnD),
-                "Tags": tagTexts,
-                "AVG Salary": avgSalary,
-                "Job Openings": jobOpenings,
-                "Guarantee Percentage": gaurenteePercentage,
-                "Outcomes": outcomePoints,
-                "Catalog": catalogTexts
-            });
+            const courseInfo = {
+                Title: $('h1').first().text(),
+                Desc: $('.cds-119.css-80vnnb.cds-121').first().text(),
+                Instructors: $('.cds-119.css-80vnnb .cds-121').text(),
+                TotalEnrolledStudents: $('.cds-119.css-80vnnb.cds-121 span strong').text(),
+                Rating: $('.css-guxf6x .cds-119.css-h1jogs.cds-121').first().text(),
+                Duration: $('.cds-119.css-h1jogs.cds-121').eq(3).text(),
+                Experience: $('.cds-119.css-h1jogs.cds-121').eq(2).text(),
+                Reviews: $('.css-lt1dx1 .css-guxf6x .cds-119.css-dmxkm1.cds-121').first().text(),
+                WhatYouWillLearn: extractTexts($, '.cds-9.css-7avemv.cds-10 li'),
+                Tags: tagTexts,
+                AVGSalary: $('.cds-119.css-dmxkm1.cds-121 .cds-119.css-bbd009.cds-121').first().text(),
+                JobOpenings: $('.cds-119.css-dmxkm1.cds-121 .cds-119.css-bbd009.cds-121').eq(1).text(),
+                GuaranteePercentage: $('.cds-119.css-dmxkm1.cds-121 .cds-119.css-bbd009.cds-121').eq(2).text(),
+                Outcomes: $('.css-1g9t2fb').text(),
+                Catalog: courseCatalogs,
+            };
 
-            // Insert the data into the MongoDB collection
-            
-            console.log({
-                "Title": courseName,
-                "Desc": courseDesc,
-                "Instructors": courseInstructors,
-                "Total Enrolled Students": enrolledStudents,
-                "Rating": rating,
-                "Duration": courseDuration,
-                "Experience": experience,
-                "Reviews": reviews,
-                "What You Will Learn": (whatYouWillLearnA + ' ' + whatYouWillLearnB + ' ' + whatYouWillLearnC + ' ' + whatYouWillLearnD),
-                "Tags": tagTexts,
-                "AVG Salary": avgSalary,
-                "Job Openings": jobOpenings,
-                "Guarantee Percentage": gaurenteePercentage,
-                "Outcomes": outcomePoints,
-                "Catalog": catalogTexts
-            });
-            console.log('-------------------------------------');
-
-
+            const result = await collection.insertOne(courseInfo);
+            console.log(`Inserted document with _id: ${result.insertedId}`);
         } catch (error) {
-            console.error('Error:', error);
+            console.error(`Error while processing URL: ${url}`, error);
         }
     }
-    client.close();
 
+    await client.close();
+    console.log("Webscraping process completed.");
 }
 
 webscrape();
