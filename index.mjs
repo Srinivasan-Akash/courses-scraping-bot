@@ -78,9 +78,8 @@ async function webscrape() {
                 Catalog: courseCatalogs,
             };
 
-            console.log(courseInfo)
-            // const result = await collection.insertOne(courseInfo);
-            // console.log(`Inserted document with _id: ${result.insertedId}`);
+            const result = await collection.insertOne(courseInfo);
+            console.log(`Inserted document with _id: ${result.insertedId}`);
         } catch (error) {
             console.error(`Error while processing URL: ${url}`, error);
         }
