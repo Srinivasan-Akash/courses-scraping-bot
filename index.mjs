@@ -31,20 +31,42 @@ async function webscrape() {
             whatYouWillLearnC = $('.cds-9.css-7avemv.cds-10 li').eq(2).text()
             whatYouWillLearnD = $('.cds-9.css-7avemv.cds-10 li').eq(3).text()
             courseDuration = $('.cds-119.css-h1jogs.cds-121').eq(3).text()
-            tags = $('.css-yk0mzy .css-0 .cds-tag-category.cds-tag-primary.cds-tag-default.css-26kv07 .cds-119.css-18p0rob.cds-121')
+
+            tags = $('#about .css-yk0mzy .css-0 ');
+            let hiddenTags = $('#about .css-yk0mzy .css-k26awr');
             tagTexts = [];
-            const checkTextAvailability = async ($elements) => {
-                const text = $elements.text();
-                if (!text) {
-                    // If no text is found, wait for a short time and check again
-                    await new Promise(resolve => setTimeout(resolve, 1000)); // Adjust the wait time as needed
-                    return checkTextAvailability($elements);
-                }
-                return text;
-            };
             
-            // Call the function to check for text availability
-            await checkTextAvailability(tags);
+            tags.each(function(index, element) {
+                // This will get the text of each <span> with the class '.cds-119.css-18p0rob.cds-121'
+                let text = $(element).text(); // Now using `$(element)` to get the jQuery object
+                if (text) {
+                    tagTexts.push(text);
+                }
+            });
+
+            hiddenTags.each(function(index, element) {
+                // This will get the text of each <span> with the class '.cds-119.css-18p0rob.cds-121'
+                let text = $(element).text(); // Now using `$(element)` to get the jQuery object
+                if (text) {
+                    tagTexts.push(text);
+                }
+            });
+            
+            console.log(tagTexts);
+
+            // const checkTextAvailability = async ($elements) => {
+            //     const text = $elements.text();
+            //     if (!text) {
+            //         // If no text is found, wait for a short time and check again
+            //         await new Promise(resolve => setTimeout(resolve, 1000)); // Adjust the wait time as needed
+            //         return checkTextAvailability($elements);
+            //     }
+            //     return text;
+            // };
+            
+            // const x = await checkTextAvailability(tags)
+            // console.log(x, "IMP")
+
 
             avgSalary = $('.cds-119.css-dmxkm1.cds-121 .cds-119.css-bbd009.cds-121').eq(0).text()
             jobOpenings = $('.cds-119.css-dmxkm1.cds-121 .cds-119.css-bbd009.cds-121').eq(1).text()
